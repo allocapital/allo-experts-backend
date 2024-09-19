@@ -2,7 +2,7 @@ from django.shortcuts import render
 from rest_framework import generics,response,status
 from .models import Mechanism
 from .serializers import MechanismSerializer
-
+import markdown
 
 class MechanismListAPIView(generics.ListAPIView):
   serializer_class=MechanismSerializer
@@ -16,7 +16,10 @@ class MechanismDetailAPIView(generics.GenericAPIView):
 
 
   def get(self,requst,slug):
+    # md = markdown.Markdown(extensions=["fenced_code"])
+
     query_set= Mechanism.objects.filter(slug=slug).first()
+    # query_set.description=md.convert(query_set.description)
 
     if query_set:
       return response.Response(self.serializer_class(query_set).data)
