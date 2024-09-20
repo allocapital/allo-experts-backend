@@ -2,6 +2,8 @@ from django.db import models
 from cloudinary.models import CloudinaryField
 from django.template.defaultfilters import slugify
 from django.utils.translation import gettext_lazy as _
+from mdeditor.fields import MDTextField
+
 
 class MechanismBgColor(models.TextChoices):
         PINK = '#FFE5F8', _('Pink')
@@ -15,7 +17,9 @@ class MechanismBgColor(models.TextChoices):
 
 class Mechanism(models.Model):
   title=models.CharField( max_length=200)
-  description=models.TextField()
+  description=MDTextField(null=True, blank=True)
+  class Meta:
+        verbose_name_plural = "Markdown content"
   slug=models.SlugField(max_length=255, null=True, blank=True)
   created_at=models.DateTimeField(auto_now_add=True)
   updated_at=models.DateTimeField(auto_now=True)
