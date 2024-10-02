@@ -93,6 +93,8 @@ DATABASES = {
         'NAME': BASE_DIR / 'db.sqlite3',
     }
 }
+USE_POSTGRES = config('USE_POSTGRES', default=False, cast=bool)
+
 if USE_POSTGRES:
     DATABASES = {
         'default': {
