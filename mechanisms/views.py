@@ -2,7 +2,6 @@ from django.shortcuts import render
 from rest_framework import generics,response,status
 from .models import Mechanism
 from .serializers import MechanismSerializer
-import markdown
 
 class MechanismListAPIView(generics.ListAPIView):
   serializer_class=MechanismSerializer

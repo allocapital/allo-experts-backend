@@ -21,7 +21,7 @@ class Expert(models.Model):
   contact_info_email=models.EmailField(max_length=254)
   created_at=models.DateTimeField(auto_now_add=True)
   updated_at=models.DateTimeField(auto_now=True)
-  avatar=CloudinaryField('Image', overwrite="True", format="jpg")
+  avatar=CloudinaryField('Image', overwrite="True", format="png")
 
   class Meta:
     ordering=('-created_at',)
