@@ -33,7 +33,8 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = 'django-insecure-svz0_*_q=m45w(i$$oaka2j92r6pmr58uir7ko&)7fv@+$i+0g'
 
-ALLOWED_HOSTS = ['34.207.159.186','api.allo.expert', 'ec2-34-207-159-186.compute-1.amazonaws.com', 'localhost', '127.0.0.1', '0.0.0.0']
+ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='').split(',')
+ALLOWED_HOSTS += ['34.207.159.186','api.allo.expert', 'ec2-34-207-159-186.compute-1.amazonaws.com', 'localhost', '127.0.0.1', '0.0.0.0']
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = config('DEBUG', default=False, cast=bool)
