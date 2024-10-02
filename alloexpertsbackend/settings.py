@@ -15,7 +15,6 @@ import cloudinary
 import os
 from dotenv import load_dotenv
 load_dotenv()
-from decouple import config
 
 
 cloudinary.config(
@@ -33,11 +32,11 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = 'django-insecure-svz0_*_q=m45w(i$$oaka2j92r6pmr58uir7ko&)7fv@+$i+0g'
 
-ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='').split(',')
+ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', default='').split(',')
 ALLOWED_HOSTS += ['34.207.159.186','api.allo.expert', 'ec2-34-207-159-186.compute-1.amazonaws.com', 'localhost', '127.0.0.1', '0.0.0.0']
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = config('DEBUG', default=False, cast=bool)
+DEBUG = os.getenv('DEBUG', default='False') == 'True'
 
 # Application definition
 
@@ -95,17 +94,17 @@ DATABASES = {
         'NAME': BASE_DIR / 'db.sqlite3',
     }
 }
-USE_POSTGRES = config('USE_POSTGRES', default=False, cast=bool)
+USE_POSTGRES = os.getenv('USE_POSTGRES', default='False') == "True"
 
 if USE_POSTGRES:
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.postgresql',
-            'NAME': config('POSTGRES_DB'),
-            'USER': config('POSTGRES_USER'),
-            'PASSWORD': config('POSTGRES_PASSWORD'),
-            'HOST': config('POSTGRES_HOST', default='localhost'),
-            'PORT': config('POSTGRES_PORT', default='5432'),
+            'NAME': os.getenv('POSTGRES_DB'),
+            'USER': os.getenv('POSTGRES_USER'),
+            'PASSWORD': os.getenv('POSTGRES_PASSWORD'),
+            'HOST': os.getenv('POSTGRES_HOST', default='localhost'),
+            'PORT': os.getenv('POSTGRES_PORT', default='5432'),
         }
     }
 
