@@ -23,7 +23,7 @@ class Mechanism(models.Model):
   slug=models.SlugField(max_length=255, null=True, blank=True)
   created_at=models.DateTimeField(auto_now_add=True)
   updated_at=models.DateTimeField(auto_now=True)
-  background_img=CloudinaryField('Image', overwrite="True", format="jpg")
+  background_img=CloudinaryField('Image', overwrite="True")
   background_color=models.CharField(
         max_length=10,
         choices=MechanismBgColor.choices,
