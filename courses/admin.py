@@ -1,12 +1,14 @@
 from django.contrib import admin
-from .models import Expert
+from .models import Course
 
-
-
-class ExpertModelAdmin(admin.ModelAdmin):
+class CourseModelAdmin(admin.ModelAdmin):
   def get_form(self, request, obj=None, change=False, **kwargs):
         form = super().get_form(request, obj=obj, change=change, **kwargs)
         form.base_fields["slug"].help_text = "This field is automatically generated"
         return form
   
-admin.site.register(Expert, ExpertModelAdmin)
+  list_display = ('title', 'created_at', 'slug')
+  search_fields = ('title', 'description', 'slug')
+
+admin.site.register(Course, CourseModelAdmin)
+
