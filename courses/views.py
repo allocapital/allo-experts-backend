@@ -7,7 +7,6 @@ class CourseListAPIView(generics.ListAPIView):
   serializer_class=CourseSerializer
 
   def get_queryset(self):
-    print("Goodbye cruel world!")
     return Course.objects.all()
   
 
