@@ -28,16 +28,43 @@ class Expert(models.Model):
 
   def __str__(self):
     return self.name
-  
+
   def save(self, *args, **kwargs):
-    to_assign=slugify(self.name)
-    
+    # Generate a base slug from the title
+    new_slug = slugify(self.name)
 
-    if Expert.objects.filter(slug=to_assign).exists():
-        to_assign=to_assign+str(Expert.objects.all().count())
-
-    self.slug=to_assign
+    # If this instance already exists (we're editing)
+    if self.pk:
+        # Fetch the current instance from the database
+        current_instance = Expert.objects.get(pk=self.pk)
+        
+        # If the title has changed, we need to check the slug
+        if current_instance.name != self.name:
+            # If the new slug already exists for another instance, append a number
+            if Expert.objects.exclude(pk=self.pk).filter(slug=new_slug).exists():
+                count = 1
+                new_unique_slug = f"{new_slug}-{count}"
+                # Find a unique slug by incrementing the count
+                while Expert.objects.filter(slug=new_unique_slug).exists():
+                    count += 1
+                    new_unique_slug = f"{new_slug}-{count}"
+                self.slug = new_unique_slug  # Set to unique slug
+            else:
+                # If the slug is unique, assign it directly
+                self.slug = new_slug
+        else:
+            # If the title hasn't changed, keep the existing slug
+            self.slug = current_instance.slug
+    else:
+        # For new instances, ensure the slug is unique
+        while Expert.objects.filter(slug=new_slug).exists():
+            count = 1
+            new_unique_slug = f"{new_slug}-{count}"
+            while Expert.objects.filter(slug=new_unique_slug).exists():
+                count += 1
+                new_unique_slug = f"{new_slug}-{count}"
+            new_slug = new_unique_slug
+        self.slug = new_slug
 
     super().save(*args, **kwargs)
-  
   
