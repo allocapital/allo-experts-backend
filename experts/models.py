@@ -38,7 +38,7 @@ class Expert(models.Model):
             current_instance = Expert.objects.get(pk=self.pk)
 
             # Check if the title was changed
-            if current_instance.title != self.title:
+            if current_instance.name != self.name:
                 # Title has changed, so we generate a new slug from the updated title
                 self.slug = new_slug
             elif current_instance.slug != self.slug and self.slug:
