@@ -51,6 +51,7 @@ INSTALLED_APPS = [
     'experts',
     'mechanisms',
     'courses',
+    'builds',
     'mdeditor',
 ]
 
