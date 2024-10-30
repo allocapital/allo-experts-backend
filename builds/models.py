@@ -22,6 +22,9 @@ class Build(models.Model):
         verbose_name_plural = "Markdown content"
 
     slug = models.SlugField(max_length=255, null=True, blank=True, unique=True)
+    status = models.CharField(max_length=255)
+    type = models.CharField(max_length=255)
+    metadata = models.JSONField(default=dict) 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     background_img = CloudinaryField('Image', overwrite=True)
