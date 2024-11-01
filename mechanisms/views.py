@@ -7,7 +7,7 @@ class MechanismListAPIView(generics.ListAPIView):
   serializer_class=MechanismSerializer
 
   def get_queryset(self):
-    return Mechanism.objects.all()
+    return Mechanism.objects.filter(hidden=False)
   
 
 class MechanismDetailAPIView(generics.GenericAPIView):
@@ -17,7 +17,7 @@ class MechanismDetailAPIView(generics.GenericAPIView):
   def get(self,requst,slug):
     # md = markdown.Markdown(extensions=["fenced_code"])
 
-    query_set= Mechanism.objects.filter(slug=slug).first()
+    query_set= Mechanism.objects.filter(slug=slug, hidden=False).first()
     # query_set.description=md.convert(query_set.description)
 
     if query_set:

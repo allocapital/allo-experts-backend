@@ -22,6 +22,7 @@ class Mechanism(models.Model):
         verbose_name_plural = "Markdown content"
 
     slug = models.SlugField(max_length=255, null=True, blank=True, unique=True)  # Ensure slug is unique
+    hidden=models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     background_img = CloudinaryField('Image', overwrite=True)

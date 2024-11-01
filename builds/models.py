@@ -22,6 +22,7 @@ class Build(models.Model):
         verbose_name_plural = "Markdown content"
 
     slug = models.SlugField(max_length=255, null=True, blank=True, unique=True)
+    hidden=models.BooleanField(default=False)
     status = models.CharField(max_length=255)
     type = models.CharField(max_length=255)
     metadata = models.JSONField(default=dict) 

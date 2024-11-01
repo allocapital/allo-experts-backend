@@ -7,7 +7,7 @@ class BuildListAPIView(generics.ListAPIView):
   serializer_class=BuildSerializer
 
   def get_queryset(self):
-    return Build.objects.all()
+    return Build.objects.filter(hidden=False)
   
 
 class BuildDetailAPIView(generics.GenericAPIView):
@@ -17,7 +17,7 @@ class BuildDetailAPIView(generics.GenericAPIView):
   def get(self,requst,slug):
     # md = markdown.Markdown(extensions=["fenced_code"])
 
-    query_set= Build.objects.filter(slug=slug).first()
+    query_set= Build.objects.filter(slug=slug, hidden=False).first()
     # query_set.description=md.convert(query_set.description)
 
     if query_set:
