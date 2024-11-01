@@ -8,7 +8,7 @@ class ExpertListAPIView(generics.ListAPIView):
   serializer_class=ExpertSerializer
 
   def get_queryset(self):
-    return Expert.objects.all()
+    return Expert.objects.filter(hidden=False)
   
 
 class ExpertDetailAPIView(generics.GenericAPIView):
@@ -16,7 +16,7 @@ class ExpertDetailAPIView(generics.GenericAPIView):
 
 
   def get(self,requst,slug):
-    query_set= Expert.objects.filter(slug=slug).first()
+    query_set= Expert.objects.filter(slug=slug, hidden=False).first()
 
     if query_set:
             serializer = self.serializer_class(query_set)

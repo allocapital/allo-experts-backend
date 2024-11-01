@@ -13,6 +13,7 @@ class ExpertCategory(models.TextChoices):
 class Expert(models.Model):
   name=models.CharField( max_length=200)
   slug=models.SlugField(max_length=255, null=True, blank=True)
+  hidden=models.BooleanField(default=False)
   description=models.TextField()
   expert_in=models.CharField(
         max_length=40,
