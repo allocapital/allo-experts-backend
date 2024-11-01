@@ -2,6 +2,9 @@ from django.db import models
 from cloudinary.models import CloudinaryField
 from django.utils.translation import gettext_lazy as _
 from django.template.defaultfilters import slugify
+from builds.models import Build
+from courses.models import Course
+
 
 class ExpertCategory(models.TextChoices):
         ALLO_ExpertS = 'allo_Experts', _('Allo Experts')
@@ -22,6 +25,13 @@ class Expert(models.Model):
   created_at=models.DateTimeField(auto_now_add=True)
   updated_at=models.DateTimeField(auto_now=True)
   avatar=CloudinaryField('Image', overwrite="True", format="png")
+  mechanisms = models.ManyToManyField(
+        'mechanisms.Mechanism', 
+        blank=True, 
+        related_name='related_experts'  # Unique related name
+    )
+  courses = models.ManyToManyField(Course, related_name='related_experts', blank=True)
+  builds = models.ManyToManyField(Build, related_name='related_experts', blank=True)
 
   class Meta:
     ordering=('-created_at',)
