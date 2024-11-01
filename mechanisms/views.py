@@ -21,5 +21,6 @@ class MechanismDetailAPIView(generics.GenericAPIView):
     # query_set.description=md.convert(query_set.description)
 
     if query_set:
-      return response.Response(self.serializer_class(query_set).data)
+            serializer = self.serializer_class(query_set)
+            return response.Response(serializer.data)
     return response.Response('Not found', status=status.HTTP_404_NOT_FOUND)

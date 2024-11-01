@@ -3,8 +3,6 @@ from cloudinary.models import CloudinaryField
 from django.template.defaultfilters import slugify
 from django.utils.translation import gettext_lazy as _
 from mdeditor.fields import MDTextField
-
-
 class CourseBgColor(models.TextChoices):
         PINK = '#FFE5F8', _('Pink')
         GREEN = '#DBF0DB', _('Green')
@@ -32,7 +30,9 @@ class Course(models.Model):
   starts_at=models.DateTimeField(null=True, blank=True)
   register_url=models.URLField(null=True, blank=True)
 
-
+  experts = models.ManyToManyField('experts.Expert', related_name='related_courses', blank=True)
+  mechanisms = models.ManyToManyField('mechanisms.Mechanism', related_name='related_courses', blank=True)
+  builds = models.ManyToManyField('builds.Build', related_name='related_courses', blank=True)
   class Meta:
     ordering=('-created_at',)
 

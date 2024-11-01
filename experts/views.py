@@ -19,5 +19,6 @@ class ExpertDetailAPIView(generics.GenericAPIView):
     query_set= Expert.objects.filter(slug=slug).first()
 
     if query_set:
-      return response.Response(self.serializer_class(query_set).data)
+            serializer = self.serializer_class(query_set)
+            return response.Response(serializer.data)
     return response.Response('Not found', status=status.HTTP_404_NOT_FOUND)

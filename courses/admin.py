@@ -1,7 +1,8 @@
 from django.contrib import admin
 from .models import Course
-
 class CourseModelAdmin(admin.ModelAdmin):
+  filter_horizontal = ('mechanisms', 'experts', 'builds')
+
   def get_form(self, request, obj=None, change=False, **kwargs):
         form = super().get_form(request, obj=obj, change=change, **kwargs)
         form.base_fields["slug"].help_text = "This field is automatically generated"
