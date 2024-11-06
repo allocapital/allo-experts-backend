@@ -4,7 +4,15 @@ from django.shortcuts import render
 from .models import Mechanism
 
 class MechanismAdmin(admin.ModelAdmin):
-    list_display = ('title', 'slug')
+    filter_horizontal = ('experts', 'builds', 'courses')
+
+    def get_form(self, request, obj=None, change=False, **kwargs):
+        form = super().get_form(request, obj=obj, change=change, **kwargs)
+        form.base_fields["slug"].help_text = "This field is automatically generated"
+        return form
+
+    list_display = ('title', 'created_at', 'slug')
+    search_fields = ('title', 'description', 'slug')
 
     def get_urls(self):
         urls = super().get_urls()
