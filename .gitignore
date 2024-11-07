@@ -36,6 +36,7 @@ __pycache__/
 .Python
 env/
 build/
+!/templates/admin/builds/build
 develop-eggs/
 dist/
 downloads/
