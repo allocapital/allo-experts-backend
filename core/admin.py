@@ -145,7 +145,7 @@ class GraphAdmin(admin.ModelAdmin):
                 }},
                 interaction: {{
                     zoomView: true,
-                    zoomSpeed: 0.5,
+                    zoomSpeed: 0.2,
                     dragView: true,
                     selectable: true
                 }},
