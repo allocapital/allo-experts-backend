@@ -30,17 +30,35 @@ class MechanismAdmin(admin.ModelAdmin):
             'graph_script': self.get_graph_script(related_data),
         })
 
-    def get_related_data(self, mechanism):
-         # Direct relationships (Level 1)
-        related_courses = list(mechanism.courses.all())
-        related_experts = list(mechanism.experts.all())
-        related_builds = list(mechanism.builds.all())
+    def get_related_objects(self, mechanism):
+            related_objects = []
+            object_types = {
+                'course': mechanism.courses.all(),
+                'expert': mechanism.experts.all(),
+                'build': mechanism.builds.all(),
+            }
 
+            for obj_type, queryset in object_types.items():
+                for obj in queryset:
+                    title = obj.name if obj_type == 'expert' else obj.title
+                    url = f"/admin/{obj._meta.app_label}/{obj._meta.model_name}/{obj.id}/change/"
+                    related_objects.append({
+                        'type': obj_type,
+                        'instance': obj, 
+                        'id': obj.id,
+                        'title': title,
+                        'url': url
+                    })
+                   
+
+            return related_objects
+    
+    def get_related_data(self, mechanism):
+        related_objects = self.get_related_objects(mechanism)
+    
         return {
             'mechanism': mechanism,
-            'related_courses': related_courses,
-            'related_experts': related_experts,
-            'related_builds': related_builds,
+            'related_objects': related_objects,
         }
 
 
@@ -57,7 +75,16 @@ class MechanismAdmin(admin.ModelAdmin):
     def get_graph_script(self, related_data):
         nodes_js = []
         edges_js = []
-        node_ids = set()  # Track node IDs to avoid duplicates
+        node_ids = set()
+        edge_ids = set()
+
+        # Function to add an undirected edge if it doesn't already exist
+        def add_edge(node_from, node_to, edges_js, edge_ids):
+            edge = tuple(sorted([node_from, node_to]))  # Sorts nodes to ensure consistent ordering
+            # Check if the edge already exists in either direction
+            if edge not in edge_ids:
+                edges_js.append(f"{{ from: '{edge[0]}', to: '{edge[1]}' }}")
+                edge_ids.add(edge) 
 
         # Define colors for node types
         colors = {
@@ -69,77 +96,55 @@ class MechanismAdmin(admin.ModelAdmin):
 
         # Mechanism Node
         mechanism_id = f"mechanism_{related_data['mechanism'].id}"
-        nodes_js.append(f"{{ id: '{mechanism_id}', label: '{related_data['mechanism'].title}', shape: 'dot', size: 40, font: {{ size: 20, color: '#ffffff', face: 'arial', strokeWidth: 0, strokeColor: '#000000' }}, color: '{colors['mechanism']}' }}")
+        nodes_js.append(f"{{ id: '{mechanism_id}', label: '{related_data['mechanism'].title}', shape: 'dot', size: 60, font: {{ size: 20, color: '#ffffff', face: 'arial', strokeWidth: 0, strokeColor: '#000000' }}, color: '{colors['mechanism']}', title: '/admin/{related_data['mechanism']._meta.app_label}/{related_data['mechanism']._meta.model_name}/{related_data['mechanism'].id}/change/' }}")
         node_ids.add(mechanism_id)
 
         # Direct Relationships
-        for course in related_data['related_courses']:
-            course_id = f"course_{course.id}"
-            nodes_js.append(f"{{ id: '{course_id}', label: '{course.title}', shape: 'dot', size: 26, font: {{ size: 20, color: '#ffffff', face: 'arial', strokeWidth: 0, strokeColor: '#000000' }}, color: '{colors['course']}' }}")
-            node_ids.add(course_id)
-            edges_js.append(f"{{ from: '{mechanism_id}', to: '{course_id}' }}")
+        # Loop through all related objects to create nodes and edges
+        for obj in related_data['related_objects']:
+            obj_id = f"{obj['type']}_{obj['id']}"
+            
+            if obj_id not in node_ids:
+                nodes_js.append(
+                    f"{{ id: '{obj_id}', label: '{obj['title']}', shape: 'dot', size: 26, font: {{ size: 20, color: '#ffffff', face: 'arial', strokeWidth: 0, strokeColor: '#000000' }}, color: '{colors[obj['type']]}', title: '/admin/{obj['instance']._meta.app_label}/{obj['instance']._meta.model_name}/{obj['instance'].id}/change/' }}"
+                )
+                node_ids.add(obj_id)
 
-        for expert in related_data['related_experts']:
-            expert_id = f"expert_{expert.id}"
-            nodes_js.append(f"{{ id: '{expert_id}', label: '{expert.name}', shape: 'dot', size: 26, font: {{ size: 20, color: '#ffffff', face: 'arial', strokeWidth: 0, strokeColor: '#000000' }}, color: '{colors['expert']}' }}")
-            node_ids.add(expert_id)
-            edges_js.append(f"{{ from: '{mechanism_id}', to: '{expert_id}' }}")
+            # Add edge between mechanism and the related object
+            add_edge(mechanism_id, obj_id, edges_js, edge_ids)
+        
+        all_types = ['mechanism', 'expert', 'course', 'build']
+        
+        # Level 2 Relationships: Connect related objects to each other as needed (e.g. experts, courses, builds)
+        for obj in related_data['related_objects']:
+            obj_id = f"{obj['type']}_{obj['id']}"
 
-        for build in related_data['related_builds']:
-            build_id = f"build_{build.id}"
-            node_ids.add(build_id)
-            nodes_js.append(f"{{ id: '{build_id}', label: '{build.title}', shape: 'dot', size: 26, font: {{ size: 20, color: '#ffffff', face: 'arial', strokeWidth: 0, strokeColor: '#000000' }}, color: '{colors['build']}' }}")
-            edges_js.append(f"{{ from: '{mechanism_id}', to: '{build_id}' }}")
-
-        # Level 2 Relationships for Experts
-        for expert in related_data['related_experts']:
-
-            # experts.mechanisms
-            # Ensure this is a relationship to a mechanism and not a duplicate
-            for related_mechanism in expert.mechanisms.all():
-                if related_mechanism != related_data['mechanism']:  # Avoid self-loop
-                    related_mechanism_id = f"mechanism_{related_mechanism.id}"
-                    # Check if the node ID is already in node_ids
-                    if related_mechanism_id not in node_ids:
-                        # If the node does not exist, add it
-                        nodes_js.append(
-                            f"{{ id: '{related_mechanism_id}', label: '{related_mechanism.title}', shape: 'dot', size: 26, font: {{ size: 20, color: '#ffffff', face: 'arial', strokeWidth: 0, strokeColor: '#000000' }}, color: '{colors['mechanism']}' }}"
-                        )
-                        node_ids.add(related_mechanism_id)
-                    # Add the edge regardless of whether the node was new or already existed
-                    edges_js.append(f"{{ from: 'expert_{expert.id}', to: '{related_mechanism_id}' }}")
-
-            # experts.courses
-            # Ensure this is a relationship to a mechanism and not a duplicate
-            for related_course in expert.courses.all():  # Assuming Expert model has courses
-                related_course_id = f"course_{related_course.id}"
-                # Check if the node ID is already in node_ids
-                if related_course_id not in node_ids:
-                        # If the node does not exist, add it
-                        nodes_js.append(
-                            f"{{ id: '{related_course_id}', label: '{related_course.title}', shape: 'dot', size: 26, font: {{ size: 20, color: '#ffffff', face: 'arial', strokeWidth: 0, strokeColor: '#000000' }}, color: '{colors['course']}' }}"
-                        )
-                        node_ids.add(related_course_id)
-                    # Add the edge regardless of whether the node was new or already existed
-                edges_js.append(f"{{ from: 'expert_{expert.id}', to: '{related_course_id}' }}")
-                
-
-            # experts.builds
-            # Ensure this is a relationship to a mechanism and not a duplicate
-            for related_build in expert.builds.all():  # Assuming Expert model has builds
-                related_build_id = f"build_{related_build.id}"
-                # Check if the node ID is already in node_ids
-                if related_build_id not in node_ids:
-                        # If the node does not exist, add it
-                        nodes_js.append(
-                            f"{{ id: '{related_build_id}', label: '{related_build.title}', shape: 'dot', size: 26, font: {{ size: 20, color: '#ffffff', face: 'arial', strokeWidth: 0, strokeColor: '#000000' }}, color: '{colors['build']}' }}"
-                        )
-                        node_ids.add(related_build_id)
-                    # Add the edge regardless of whether the node was new or already existed
-                edges_js.append(f"{{ from: 'expert_{expert.id}', to: '{related_build_id}' }}")
+            print("level2 objectId: ", obj_id)
+            # e.g: expert.mechanisms, expert.courses, expert.builds
+            for related_type in all_types:
+                if related_type != obj['type']:  # Skip the same type
                     
+                    # Dynamically fetch the related items
+                    related_items = getattr(obj['instance'], f"{related_type}s").all()
+                    print("level2 object related_type: ", related_type)
+                    # e.g: for each expert.mechanisms item
+                    for related_item in related_items:
+                        related_item_id = f"{related_type}_{related_item.id}"
+                        print("level2 object related_item_id: ", related_item_id)
+                        # Dynamically calculate the color based on type
+                        color = colors[related_type]
+                        
+                        # Add the related item as a node if it doesn't already exist
+                        if related_item_id not in node_ids:
+                            label = getattr(related_item, 'title', getattr(related_item, 'name', ''))
+                            nodes_js.append(
+                                f"{{ id: '{related_item_id}', label: '{label}', shape: 'dot', size: 26, font: {{ size: 20, color: '#ffffff', face: 'arial', strokeWidth: 0, strokeColor: '#000000' }}, color: '{colors[related_type]}', title: '/admin/{related_item._meta.app_label}/{related_item._meta.model_name}/{related_item.id}/change/' }}"
+                            )
+                            node_ids.add(related_item_id)
+                        
+                        # Add the edge to the graph
+                        add_edge(obj_id, related_item_id, edges_js, edge_ids)
 
-        print("Nodes: %s", nodes_js)
         print("Edges: %s", edges_js)
 
         # Final graph script
@@ -168,6 +173,16 @@ class MechanismAdmin(admin.ModelAdmin):
                 }}
             }};
             var network = new vis.Network(container, data, options);
+
+            // Click event listener for nodes
+            network.on('click', function (event) {{
+                var nodeId = event.nodes[0]; // Get the ID of the clicked node
+                if (nodeId) {{
+                    var node = nodes.get(nodeId);
+                    var url = node.title; // Get the URL from the node's title
+                    window.open(url, '_blank'); // Open the URL in a new tab
+                }}
+            }});
         </script>
         """
         return script
