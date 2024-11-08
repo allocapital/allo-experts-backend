@@ -4,23 +4,29 @@ from django.urls import path
 
 class GraphAdmin(admin.ModelAdmin):
 
-    related_object_types = {}
+    related_object_types = {
+        'mechanism': 'mechanisms',
+        'expert': 'experts',
+        'build': 'builds',
+        'course': 'courses',
+    }
 
     def get_related_objects(self, instance):
             related_objects = []
 
             for obj_type, related_name in self.related_object_types.items():
-                related_queryset = getattr(instance, related_name).all()
-                for obj in related_queryset:
-                    title = getattr(obj, 'name', getattr(obj, 'title', ''))
-                    url = f"/admin/{obj._meta.app_label}/{obj._meta.model_name}/{obj.id}/change/"
-                    related_objects.append({
-                        'type': obj_type,
-                        'instance': obj, 
-                        'id': obj.id,
-                        'title': title,
-                        'url': url
-                    })
+                if hasattr(instance, related_name):  
+                    related_queryset = getattr(instance, related_name).all()
+                    for obj in related_queryset:
+                        title = getattr(obj, 'name', getattr(obj, 'title', ''))
+                        url = f"/admin/{obj._meta.app_label}/{obj._meta.model_name}/{obj.id}/change/"
+                        related_objects.append({
+                            'type': obj_type,
+                            'instance': obj, 
+                            'id': obj.id,
+                            'title': title,
+                            'url': url
+                        })
             return related_objects
 
     def get_related_data(self, instance):
@@ -48,11 +54,12 @@ class GraphAdmin(admin.ModelAdmin):
 
         # Function to add an undirected edge if it doesn't already exist
         def add_edge(node_from, node_to, edges_js, edge_ids):
-            edge = tuple(sorted([node_from, node_to]))  # Sorts nodes to ensure consistent ordering
-            # Check if the edge already exists in either direction
-            if edge not in edge_ids:
-                edges_js.append(f"{{ from: '{edge[0]}', to: '{edge[1]}' }}")
-                edge_ids.add(edge)
+            if node_from != node_to:
+                edge = tuple(sorted([node_from, node_to]))  # Sorts nodes to ensure consistent ordering
+                # Check if the edge already exists in either direction
+                if edge not in edge_ids:
+                    edges_js.append(f"{{ from: '{edge[0]}', to: '{edge[1]}' }}")
+                    edge_ids.add(edge)
 
         # Define colors for node types
         colors = {
@@ -97,8 +104,7 @@ class GraphAdmin(admin.ModelAdmin):
             obj_id = f"{obj['type']}_{obj['id']}"
 
             for related_type in all_types:
-                if related_type != obj['type']:  # Skip the same type
-                    
+                if hasattr(obj['instance'], f"{related_type}s"):    
                     # Dynamically fetch the related items
                     related_items = getattr(obj['instance'], f"{related_type}s").all()
 

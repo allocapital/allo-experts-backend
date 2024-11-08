@@ -13,6 +13,7 @@ def get_global_graph_script(self, related_data):
 
         # Function to add an undirected edge if it doesn't already exist
         def add_edge(node_from, node_to, edges_js, edge_ids):
+          
             edge = tuple(sorted([node_from, node_to]))  # Sorts nodes to ensure consistent ordering
             # Check if the edge already exists in either direction
             if edge not in edge_ids:
@@ -32,15 +33,11 @@ def get_global_graph_script(self, related_data):
 
         # Recursive function to traverse related objects
         def traverse(instance, instance_type, visited):
-            print(instance_type)
             instance_id = f"{instance_type}_{instance.id}"
-            print(instance_id)
-            print(instance_id in visited)
             # Check if this node was already visited to prevent infinite loops
             if instance_id in visited:
                 return
             visited.add(instance_id)
-
             # Add main node
             if instance_id not in node_ids:
                 color = colors.get(instance_type, '#888888')
@@ -54,24 +51,16 @@ def get_global_graph_script(self, related_data):
 
             # Go through each type to find related objects except the current type
             for related_type in all_types:
-                if related_type != instance_type:
-                    print(related_type, instance_type)
-
                     related_model_name = f"{related_type}s"
-                    print(related_model_name)
                     if hasattr(instance, related_model_name):
-                        print('ABC')
                         related_items = getattr(instance, related_model_name).all()
                         
                         for related_item in related_items:
-                            print(related_item)
                             related_item_id = f"{related_type}_{related_item.id}"
                             related_color = colors.get(related_type, '#888888')
                             
-                            print(related_item_id, node_ids)
                             # Add node for related item if it hasn't been added
                             if related_item_id not in node_ids:
-                                print('here')
                                 related_label = getattr(related_item, 'title', getattr(related_item, 'name', ''))
                                 nodes_js.append(
                                     f"{{ id: '{related_item_id}', label: '{related_label}', shape: 'dot', size: 26, "
@@ -80,14 +69,15 @@ def get_global_graph_script(self, related_data):
                                 )
                                 node_ids.add(related_item_id)
 
-                            # Add an undirected edge if it doesn't already exist
-                            edge = tuple(sorted([instance_id, related_item_id]))
-                            if edge not in edge_ids:
-                                edges_js.append(f"{{ from: '{edge[0]}', to: '{edge[1]}' }}")
-                                edge_ids.add(edge)
-                            
-                            # Recursively traverse related items
-                            traverse(related_item, related_type, visited)
+                            if instance_id != related_item_id:
+                              # Add an undirected edge if it doesn't already exist
+                              edge = tuple(sorted([instance_id, related_item_id]))
+                              if edge not in edge_ids:
+                                  edges_js.append(f"{{ from: '{edge[0]}', to: '{edge[1]}' }}")
+                                  edge_ids.add(edge)
+                              
+                              # Recursively traverse related items
+                              traverse(related_item, related_type, visited)
 
         # Start traversal from the main instance
         main_instance = related_data['instance']
@@ -165,6 +155,7 @@ def visual_map(request):
         'course': 'courses',
         'mechanism': 'mechanisms',
         'build': 'builds',
+        'expert': 'experts',
     }
     
     # Fetch the initial instance to start the graph rendering (e.g., the first mechanism, expert, etc.)

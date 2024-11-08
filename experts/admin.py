@@ -6,7 +6,7 @@ from core.admin import GraphAdmin
 
 @admin.register(Expert)
 class ExpertModelAdmin(GraphAdmin):
-    filter_horizontal = ('mechanisms', 'courses', 'builds')
+    filter_horizontal = ('mechanisms', 'courses', 'builds', 'experts')
     list_display = ('name', 'description')
     search_fields = ('name',)
 
