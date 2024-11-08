@@ -33,6 +33,7 @@ class Expert(models.Model):
     )
   courses = models.ManyToManyField(Course, related_name='related_experts', blank=True)
   builds = models.ManyToManyField(Build, related_name='related_experts', blank=True)
+  experts = models.ManyToManyField('self', blank=True)
 
   class Meta:
     ordering=('-created_at',)

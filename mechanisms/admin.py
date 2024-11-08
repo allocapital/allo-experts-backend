@@ -5,7 +5,7 @@ from .models import Mechanism
 from core.admin import GraphAdmin
 
 class MechanismAdmin(GraphAdmin):
-    filter_horizontal = ('experts', 'builds', 'courses')
+    filter_horizontal = ('experts', 'builds', 'courses', 'mechanisms')
 
     def get_form(self, request, obj=None, change=False, **kwargs):
         form = super().get_form(request, obj=obj, change=change, **kwargs)
@@ -15,11 +15,6 @@ class MechanismAdmin(GraphAdmin):
     list_display = ('title', 'created_at', 'slug')
     search_fields = ('title', 'description', 'slug')
 
-    related_object_types = {
-        'course': 'courses',
-        'expert': 'experts',
-        'build': 'builds',
-    }
     def get_urls(self):
         urls = super().get_urls()
         custom_urls = [

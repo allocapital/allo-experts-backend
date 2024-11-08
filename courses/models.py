@@ -34,6 +34,7 @@ class Course(models.Model):
   experts = models.ManyToManyField('experts.Expert', related_name='related_courses', blank=True)
   mechanisms = models.ManyToManyField('mechanisms.Mechanism', related_name='related_courses', blank=True)
   builds = models.ManyToManyField('builds.Build', related_name='related_courses', blank=True)
+  courses = models.ManyToManyField('self', blank=True)
   class Meta:
     ordering=('-created_at',)
 

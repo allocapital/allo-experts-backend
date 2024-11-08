@@ -4,7 +4,7 @@ from core.admin import GraphAdmin
 from django.shortcuts import render
 from django.urls import path
 class CourseModelAdmin(GraphAdmin):
-  filter_horizontal = ('mechanisms', 'experts', 'builds')
+  filter_horizontal = ('mechanisms', 'experts', 'builds', 'courses')
 
   def get_form(self, request, obj=None, change=False, **kwargs):
         form = super().get_form(request, obj=obj, change=change, **kwargs)
@@ -14,11 +14,6 @@ class CourseModelAdmin(GraphAdmin):
   list_display = ('title', 'created_at', 'slug')
   search_fields = ('title', 'description', 'slug')
 
-  related_object_types = {
-        'mechanism': 'mechanisms',
-        'expert': 'experts',
-        'build': 'builds',
-  }
   def get_urls(self):
         urls = super().get_urls()
         custom_urls = [
