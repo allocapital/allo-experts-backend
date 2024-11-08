@@ -168,7 +168,7 @@ def visual_map(request):
     }
     
     # Fetch the initial instance to start the graph rendering (e.g., the first mechanism, expert, etc.)
-    instance = Expert.objects.first()  # Or some other instance that makes sense
+    instance = Expert.objects.get(id=1)
     related_object_types = {}
 
     def get_related_objects(instance):
