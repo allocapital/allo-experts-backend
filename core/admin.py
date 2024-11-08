@@ -13,7 +13,6 @@ class GraphAdmin(admin.ModelAdmin):
                 related_queryset = getattr(instance, related_name).all()
                 for obj in related_queryset:
                     title = getattr(obj, 'name', getattr(obj, 'title', ''))
-                    # title = obj.name if obj_type == 'expert' else obj.title
                     url = f"/admin/{obj._meta.app_label}/{obj._meta.model_name}/{obj.id}/change/"
                     related_objects.append({
                         'type': obj_type,
@@ -94,7 +93,6 @@ class GraphAdmin(admin.ModelAdmin):
         
         # Level 2 Relationships: Connect related objects to each other as needed (e.g. experts, courses, builds)
 
-        # Level 2 Relationships: Connect related objects to each other as needed (e.g. experts, courses, builds)
         for obj in related_data['related_objects']:
             obj_id = f"{obj['type']}_{obj['id']}"
 
@@ -108,9 +106,6 @@ class GraphAdmin(admin.ModelAdmin):
                         related_item_id = f"{related_type}_{related_item.id}"
                         color = colors[related_type]
                         
-                        
-                        # Add the related item as a node if it doesn't already exist
-
                         # Add the related item as a node if it doesn't already exist
                         if related_item_id not in node_ids:
                             label = getattr(related_item, 'title', getattr(related_item, 'name', ''))
@@ -119,9 +114,6 @@ class GraphAdmin(admin.ModelAdmin):
                             )
                             node_ids.add(related_item_id)
                         
-                        
-                        # Add the edge to the graph
-
                         # Add the edge to the graph
                         add_edge(obj_id, related_item_id, edges_js, edge_ids)
 

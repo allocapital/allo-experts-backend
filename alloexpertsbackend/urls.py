@@ -16,8 +16,10 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path,include
+from .views import visual_map
 
 urlpatterns = [
+    path('admin/administration/visual/', visual_map, name='visual_map'),
     path('admin/', admin.site.urls),
     path('api/mechanisms/', include('mechanisms.urls')),
     path('api/experts/', include('experts.urls')),   
