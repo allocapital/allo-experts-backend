@@ -41,6 +41,9 @@ class Expert(models.Model):
   def __str__(self):
     return self.name
 
+  def get_absolute_url(self):
+        return f"https://allo.expert/experts/{self.slug}/"
+  
   def save(self, *args, **kwargs):
         # Generate a base slug from the title
         new_slug = slugify(self.name)

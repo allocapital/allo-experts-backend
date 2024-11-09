@@ -3,12 +3,17 @@ from .models import Expert
 from django.urls import path
 from django.shortcuts import render
 from core.admin import GraphAdmin
+from django.utils.html import format_html
 
 @admin.register(Expert)
 class ExpertModelAdmin(GraphAdmin):
     filter_horizontal = ('mechanisms', 'courses', 'builds', 'experts')
-    list_display = ('name', 'description')
+    list_display = ('name', 'description', 'view_on_site_link')
     search_fields = ('name',)
+
+    def view_on_site_link(self, obj):
+        return format_html('<a href="{}" target="_blank">View on allo.expert</a>', obj.get_absolute_url())
+    view_on_site_link.short_description = 'allo.expert link'
 
     def get_form(self, request, obj=None, change=False, **kwargs):
         form = super().get_form(request, obj=obj, change=change, **kwargs)
@@ -16,11 +21,6 @@ class ExpertModelAdmin(GraphAdmin):
         return form
 
 
-    related_object_types = {
-        'course': 'courses',
-        'mechanism': 'mechanisms',
-        'build': 'builds',
-    }
     def get_urls(self):
         urls = super().get_urls()
         custom_urls = [

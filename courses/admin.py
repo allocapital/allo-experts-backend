@@ -3,6 +3,7 @@ from .models import Course
 from core.admin import GraphAdmin
 from django.shortcuts import render
 from django.urls import path
+from django.utils.html import format_html
 class CourseModelAdmin(GraphAdmin):
   filter_horizontal = ('mechanisms', 'experts', 'builds', 'courses')
 
@@ -11,9 +12,13 @@ class CourseModelAdmin(GraphAdmin):
         form.base_fields["slug"].help_text = "This field is automatically generated"
         return form
   
-  list_display = ('title', 'created_at', 'slug')
+  list_display = ('title', 'created_at', 'slug', 'view_on_site_link')
   search_fields = ('title', 'description', 'slug')
 
+  def view_on_site_link(self, obj):
+        return format_html('<a href="{}" target="_blank">View on allo.expert</a>', obj.get_absolute_url())
+  view_on_site_link.short_description = 'allo.expert link'
+  
   def get_urls(self):
         urls = super().get_urls()
         custom_urls = [
