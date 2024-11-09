@@ -40,6 +40,9 @@ class Mechanism(models.Model):
 
     def __str__(self):
         return self.title
+    
+    def get_absolute_url(self):
+        return f"https://allo.expert/mechanisms/{self.slug}/"
 
     def save(self, *args, **kwargs):
         # Generate a base slug from the title
