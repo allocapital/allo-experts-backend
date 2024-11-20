@@ -6,7 +6,7 @@ from core.admin import GraphAdmin
 from django.utils.html import format_html
 
 class BuildModelAdmin(GraphAdmin):
-  filter_horizontal = ('mechanisms', 'courses', 'experts', 'builds')
+  filter_horizontal = ('mechanisms', 'courses', 'experts', 'builds', 'categories')
 
   def get_form(self, request, obj=None, change=False, **kwargs):
         form = super().get_form(request, obj=obj, change=change, **kwargs)

@@ -31,6 +31,7 @@ class Course(models.Model):
   starts_at=models.DateTimeField(null=True, blank=True)
   register_url=models.URLField(null=True, blank=True)
 
+  categories = models.ManyToManyField('categories.Category', related_name='related_courses', blank=True)
   experts = models.ManyToManyField('experts.Expert', related_name='related_courses', blank=True)
   mechanisms = models.ManyToManyField('mechanisms.Mechanism', related_name='related_courses', blank=True)
   builds = models.ManyToManyField('builds.Build', related_name='related_courses', blank=True)
