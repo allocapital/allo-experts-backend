@@ -34,6 +34,7 @@ class Build(models.Model):
         choices=BuildBgColor.choices,
         default=BuildBgColor.PINK
     )
+    categories = models.ManyToManyField('categories.Category', related_name='related_builds', blank=True)
     experts = models.ManyToManyField('experts.Expert', related_name='related_builds', blank=True)
     mechanisms = models.ManyToManyField('mechanisms.Mechanism', related_name='related_builds', blank=True)
     courses = models.ManyToManyField('courses.Course', related_name='related_builds', blank=True)

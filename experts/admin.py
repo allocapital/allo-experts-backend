@@ -7,7 +7,7 @@ from django.utils.html import format_html
 
 @admin.register(Expert)
 class ExpertModelAdmin(GraphAdmin):
-    filter_horizontal = ('mechanisms', 'courses', 'builds', 'experts')
+    filter_horizontal = ('mechanisms', 'courses', 'builds', 'experts', 'categories')
     list_display = ('name', 'description', 'view_on_site_link')
     search_fields = ('name',)
 

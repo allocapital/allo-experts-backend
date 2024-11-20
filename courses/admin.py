@@ -5,7 +5,7 @@ from django.shortcuts import render
 from django.urls import path
 from django.utils.html import format_html
 class CourseModelAdmin(GraphAdmin):
-  filter_horizontal = ('mechanisms', 'experts', 'builds', 'courses')
+  filter_horizontal = ('mechanisms', 'experts', 'builds', 'courses', 'categories')
 
   def get_form(self, request, obj=None, change=False, **kwargs):
         form = super().get_form(request, obj=obj, change=change, **kwargs)

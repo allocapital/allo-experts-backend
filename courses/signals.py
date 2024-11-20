@@ -4,6 +4,7 @@ from .models import Course
 from mechanisms.models import Mechanism
 from experts.models import Expert
 from builds.models import Build
+from categories.models import Category
 from core.signals import sync_bidirectional_relation
 
 @receiver(m2m_changed, sender=Course.mechanisms.through)
@@ -45,6 +46,20 @@ def update_builds_relation(sender, instance, action, pk_set, **kwargs):
         action=action,
         pk_set=pk_set,
         related_model=Build,
+        related_field_name='courses',
+        **kwargs
+    )
+@receiver(m2m_changed, sender=Course.categories.through)
+def update_categories_relation(sender, instance, action, pk_set, **kwargs):
+    """
+    A receiver for the 'categories' field of a Course. This will synchronize
+    the category objects when the Course's categories are modified.
+    """
+    sync_bidirectional_relation(
+        instance=instance,
+        action=action,
+        pk_set=pk_set,
+        related_model=Category,
         related_field_name='courses',
         **kwargs
     )

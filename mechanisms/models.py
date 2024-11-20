@@ -31,6 +31,7 @@ class Mechanism(models.Model):
         choices=MechanismBgColor.choices,
         default=MechanismBgColor.PINK
     )
+    categories = models.ManyToManyField('categories.Category', related_name='related_mechanisms', blank=True)
     experts = models.ManyToManyField('experts.Expert', related_name='related_mechanisms', blank=True)
     courses = models.ManyToManyField('courses.Course', related_name='related_mechanisms', blank=True)
     builds = models.ManyToManyField('builds.Build', related_name='related_mechanisms', blank=True)

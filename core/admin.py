@@ -9,11 +9,11 @@ class GraphAdmin(admin.ModelAdmin):
         'expert': 'experts',
         'build': 'builds',
         'course': 'courses',
+        'category': 'categories',
     }
 
     def get_related_objects(self, instance):
             related_objects = []
-
             for obj_type, related_name in self.related_object_types.items():
                 if hasattr(instance, related_name):  
                     related_queryset = getattr(instance, related_name).all()
@@ -66,7 +66,8 @@ class GraphAdmin(admin.ModelAdmin):
             'mechanism': '#1f78b4',  # Blue
             'course': '#33a02c',      # Green
             'build': '#e31a1c',       # Red
-            'expert': '#ff7f00'       # Orange
+            'expert': '#ff7f00'  ,     # Orange
+            'category': '#ffffff'       # White
         }
 
         # Get the main instance (e.g., mechanism, course, etc.)
@@ -95,7 +96,7 @@ class GraphAdmin(admin.ModelAdmin):
             add_edge(instance_id, obj_id, edges_js, edge_ids)
 
         # Level 2 Relationships
-        all_types = ['mechanism', 'expert', 'course', 'build']
+        all_types = ['mechanism', 'expert', 'course', 'build', 'category']
         
         
         # Level 2 Relationships: Connect related objects to each other as needed (e.g. experts, courses, builds)
@@ -104,9 +105,14 @@ class GraphAdmin(admin.ModelAdmin):
             obj_id = f"{obj['type']}_{obj['id']}"
 
             for related_type in all_types:
-                if hasattr(obj['instance'], f"{related_type}s"):    
+                if related_type == 'category':
+                    related_field = 'categories'  # Correct plural form for category
+                else:
+                    related_field = f"{related_type}s" 
+
+                if hasattr(obj['instance'], related_field):    
                     # Dynamically fetch the related items
-                    related_items = getattr(obj['instance'], f"{related_type}s").all()
+                    related_items = getattr(obj['instance'], related_field).all()
 
                     for related_item in related_items:
                         related_item_id = f"{related_type}_{related_item.id}"

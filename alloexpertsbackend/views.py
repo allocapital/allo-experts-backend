@@ -19,16 +19,18 @@ def get_global_graph_script(self, related_data):
             if edge not in edge_ids:
                 edges_js.append(f"{{ from: '{edge[0]}', to: '{edge[1]}' }}")
                 edge_ids.add(edge)
+        
 
         # Define colors for node types
         colors = {
             'mechanism': '#1f78b4',  # Blue
             'course': '#33a02c',      # Green
             'build': '#e31a1c',       # Red
-            'expert': '#ff7f00'       # Orange
+            'expert': '#ff7f00' ,      # Orange
+            'category': '#ffffff'       # White
         }
 
-        all_types = ['mechanism', 'expert', 'course', 'build']
+        all_types = ['mechanism', 'expert', 'course', 'build', 'category']
 
 
         # Recursive function to traverse related objects
@@ -51,7 +53,11 @@ def get_global_graph_script(self, related_data):
 
             # Go through each type to find related objects except the current type
             for related_type in all_types:
-                    related_model_name = f"{related_type}s"
+                    if related_type == 'category':
+                        related_model_name = 'categories'
+                    else:
+                        related_model_name = f"{related_type}s" 
+                    
                     if hasattr(instance, related_model_name):
                         related_items = getattr(instance, related_model_name).all()
                         
@@ -156,6 +162,7 @@ def visual_map(request):
         'mechanism': 'mechanisms',
         'build': 'builds',
         'expert': 'experts',
+        'category': 'categories',
     }
     
     # Fetch the initial instance to start the graph rendering (e.g., the first mechanism, expert, etc.)

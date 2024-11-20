@@ -26,6 +26,8 @@ class Expert(models.Model):
   created_at=models.DateTimeField(auto_now_add=True)
   updated_at=models.DateTimeField(auto_now=True)
   avatar=CloudinaryField('Image', overwrite="True", format="png")
+
+  categories = models.ManyToManyField('categories.Category', related_name='related_experts', blank=True)
   mechanisms = models.ManyToManyField(
         'mechanisms.Mechanism', 
         blank=True, 
