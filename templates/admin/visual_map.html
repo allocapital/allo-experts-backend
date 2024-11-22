@@ -3,12 +3,162 @@
 
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Visual Map</title>
+  <script src="https://d3js.org/d3.v7.min.js"></script>
 </head>
 
 <body style="background-color: #121212">
   <h1 style="color: white; margin-left: 2rem; margin-top: 2rem;">Visual Map of Related Models</h1>
-  {{ graph_script|safe }}
+  
+  <div id="graph" style="width: 100%; height: 800px;"></div>
+  <script>
+    fetch('/admin/administration/visual-data/')
+      .then(response => response.json())
+      .then(data => {renderGraph(data);  });
+
+
+    function renderGraph(data) {
+      
+      const width = document.getElementById('graph').clientWidth;
+      const height = 600;
+
+      // Create SVG element
+      const svg = d3.select("#graph").append("svg")
+        .attr("width", width)
+        .attr("height", height);
+
+      // Create a group for zoomable content
+      const zoomGroup = svg.append("g");
+
+      // Add zoom behavior
+      const zoom = d3.zoom()
+        .scaleExtent([0.5, 5]) // Min and max zoom levels
+        .on("zoom", (event) => {
+          zoomGroup.attr("transform", event.transform);
+        });
+
+      svg.call(zoom);
+
+      const simulation = d3.forceSimulation(data.nodes)
+        .force("link", d3.forceLink(data.edges).id(d => d.id).distance(100))
+        .force("charge", d3.forceManyBody().strength(-200))
+        .force("center", d3.forceCenter(width / 2, height / 2));
+
+      // Draw edges
+      const link = zoomGroup.append("g")
+        .selectAll("line")
+        .data(data.edges)
+        .join("line")
+        .attr("stroke", "#aaa");
+
+      // Draw nodes
+      const node = zoomGroup.append("g")
+        .selectAll("circle")
+        .data(data.nodes)
+        .join("circle")
+        .attr("r", 10)
+        .attr("fill", d => d.color)
+        .call(drag(simulation));
+
+      // Add labels
+      const label = zoomGroup.append("g")
+        .selectAll("text")
+        .data(data.nodes)
+        .join("text")
+        .text(d => d.label)
+        .attr("font-size", "10px")
+        .attr("fill", "#FFFFFF")
+        .attr("dx", 14)
+        .attr("dy", 4);
+
+      // Add node click
+      node.on("click", (event, d) => {
+        if (d.url) {
+          window.open(d.url, "_blank");
+        } else {
+          console.log("No URL found for this node");
+        }
+      });
+
+      simulation.on("tick", () => {
+        link
+          .attr("x1", d => d.source.x)
+          .attr("y1", d => d.source.y)
+          .attr("x2", d => d.target.x)
+          .attr("y2", d => d.target.y);
+
+        node
+          .attr("cx", d => d.x)
+          .attr("cy", d => d.y);
+
+        label
+          .attr("x", d => d.x)
+          .attr("y", d => d.y);
+      });
+
+      function drag(simulation) {
+        function dragStarted(event) {
+          if (!event.active) simulation.alphaTarget(0.3).restart();
+          event.subject.fx = event.subject.x;
+          event.subject.fy = event.subject.y;
+        }
+        function dragged(event) {
+          event.subject.fx = event.x;
+          event.subject.fy = event.y;
+        }
+        function dragEnded(event) {
+          if (!event.active) simulation.alphaTarget(0);
+          event.subject.fx = null;
+          event.subject.fy = null;
+        }
+        return d3.drag()
+          .on("start", dragStarted)
+          .on("drag", dragged)
+          .on("end", dragEnded);
+      }
+
+
+      function renderLegend() {
+        const legendData = [
+          { label: "Mechanism", color: "#1f78b4" },
+          { label: "Course", color: "#33a02c" },
+          { label: "Build", color: "#e31a1c" },
+          { label: "Expert", color: "#ff7f00" },
+          { label: "Category", color: "#ffffff" }
+        ];
+
+        const legend = svg.append("g")
+          .attr("transform", `translate(${width - 150}, 20)`); // Position legend (top-right corner)
+
+        const legendItem = legend.selectAll(".legend-item")
+          .data(legendData)
+          .enter()
+          .append("g")
+          .attr("class", "legend-item")
+          .attr("transform", (d, i) => `translate(0, ${i * 25})`); // Space out items vertically
+
+        // Add color rectangles
+        legendItem.append("rect")
+          .attr("width", 20)
+          .attr("height", 20)
+          .attr("fill", d => d.color)
+          .attr("stroke", "#000")
+          .attr("stroke-width", 0.5);
+
+        // Add text labels
+        legendItem.append("text")
+          .attr("x", 30) // Position text to the right of the rectangle
+          .attr("y", 15) // Align text vertically to the rectangle
+          .attr("font-size", "16px")
+          .attr("fill", "#FFFFFF")
+          .text(d => d.label);
+      }
+
+      renderLegend();
+    }
+
+  </script>
 </body>
 
 </html>
