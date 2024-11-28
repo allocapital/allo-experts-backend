@@ -3,12 +3,534 @@
 
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Visual Map</title>
+  <script src="https://d3js.org/d3.v7.min.js"></script>
+  <style>
+    .category-container {
+      stroke: #f1f1f1;
+      stroke-width: 1;
+      fill-opacity: 0.2;
+    }
+
+    .category-label {
+      fill: #ffffff;
+      font-size: 14px;
+      font-weight: bold;
+    }
+  </style>
 </head>
 
 <body style="background-color: #121212">
-  <h1 style="color: white; margin-left: 2rem; margin-top: 2rem;">Visual Map of Related Models</h1>
-  {{ graph_script|safe }}
+  <div style="display: flex; gap: 6rem;  margin-top: 2rem; align-items: center;">
+    <h1 style="color: white; margin-left: 2rem;">Visual Map of Related Models</h1>
+    <button id="toggle-view"
+      style=" padding: 5px 8px 5px 8px; height: 36px; background-color: transparent; color:white; border:1px solid white; cursor: pointer;"><span>Switch
+        to Categories
+        View</span></button>
+  </div>
+  <div id="graph" style="width: 100%; height: 800px;"></div>
+
+  <script>
+    let currentView = "nodes";
+    let graphData = null;
+
+    fetch('/admin/administration/visual-data/')
+      .then(response => response.json())
+      .then(data => {
+        graphData = data;
+        renderGraph(data);
+        setupToggle();
+      });
+
+    function setupToggle() {
+      const toggleButton = document.getElementById("toggle-view");
+      toggleButton.addEventListener("click", () => {
+        currentView = currentView === "nodes" ? "groups" : "nodes";
+        toggleButton.innerText = `Switch to ${currentView === "nodes" ? "Categories" : "Nodes"} View`;
+        if (currentView === "groups") {
+          renderGroups(graphData.groups);
+        } else {
+          renderGraph(graphData);
+        }
+      });
+    }
+
+    function renderGroups(groups) {
+      d3.select("#graph").selectAll("*").remove();
+
+      const width = document.getElementById("graph").clientWidth;
+      const height = 800;
+      const padding = 50;
+
+      const svg = d3.select("#graph")
+        .append("svg")
+        .attr("width", width)
+        .attr("height", height);
+
+      const zoomGroup = svg.append("g");
+
+      const zoom = d3.zoom()
+        .scaleExtent([0.5, 5])
+        .on("zoom", (event) => {
+          zoomGroup.attr("transform", event.transform);
+        });
+
+      svg.call(zoom);
+
+      // Calculate layout for categorized containers
+      const numGroups = groups.length;
+      const numCols = 2;
+      const numRows = Math.ceil(numGroups / numCols);
+
+      // Use less width for category containers to leave space for uncategorized nodes
+      const usableWidth = width * 0.7; // Use 70% of width for category containers
+      const containerWidth = (usableWidth - (padding * (numCols + 1))) / numCols;
+      const containerHeight = (height - (padding * (numRows + 2))) / numRows;
+
+      // Position containers in a grid
+      const startX = padding * 2;
+      const startY = padding * 2;
+
+      groups.forEach((group, i) => {
+        const row = Math.floor(i / numCols);
+        const col = i % numCols;
+        group.x = startX + col * (containerWidth + padding);
+        group.y = startY + row * (containerHeight + padding);
+        group.width = containerWidth;
+        group.height = containerHeight;
+      });
+
+      // Draw category containers
+      const containers = zoomGroup.selectAll(".category-container")
+        .data(groups)
+        .enter()
+        .append("rect")
+        .attr("class", "category-container")
+        .attr("x", d => d.x)
+        .attr("y", d => d.y)
+        .attr("width", d => d.width)
+        .attr("height", d => d.height)
+        .attr("fill", "none") 
+        .attr("stroke", "#696969") 
+        .attr("stroke-width", 1);
+
+      // Add container labels
+      zoomGroup.selectAll(".category-label")
+        .data(groups)
+        .enter()
+        .append("text")
+        .attr("class", "category-label")
+        .attr("x", d => d.x + 10)
+        .attr("y", d => d.y + 25)
+        .text(d => d.category.label);
+
+      // Create a virtual container for uncategorized nodes
+      const virtualContainer = {
+        x: usableWidth + padding * 3,
+        y: height * 0.2,
+        width: width * 0.25,
+        height: height * 0.6
+      };
+
+      const allNodes = [];
+      const nodeMap = new Map();
+
+      // Helper function to generate initial positions in a spiral pattern
+      function generateSpiralPosition(container, index, total) {
+        const centerX = container.x + container.width / 2;
+        const centerY = container.y + container.height / 2;
+
+        const spiralRadius = Math.min(container.width, container.height) * 0.35;
+        const angle = index * 2.4;
+        const radius = spiralRadius * (index / total);
+
+        return {
+          x: centerX + Math.cos(angle) * radius,
+          y: centerY + Math.sin(angle) * radius + (container.y === virtualContainer.y ? 0 : 30)
+        };
+      }
+
+      // Add nodes with container assignments and spiral positions
+      groups.forEach(group => {
+        const numNodes = group.nodes.length;
+        group.nodes.forEach((node, index) => {
+          if (!nodeMap.has(node.id)) {
+            const position = generateSpiralPosition(group, index, numNodes);
+            const nodeWithPosition = {
+              ...node,
+              container: group,
+              x: position.x,
+              y: position.y,
+              initialX: position.x,
+              initialY: position.y
+            };
+
+            allNodes.push(nodeWithPosition);
+            nodeMap.set(node.id, nodeWithPosition);
+          }
+        });
+      });
+
+      // Add uncategorized nodes to virtual container
+      if (graphData.uncategorized) {
+        const numUncategorized = graphData.uncategorized.length;
+        graphData.uncategorized.forEach((node, index) => {
+          if (!nodeMap.has(node.id)) {
+            const position = generateSpiralPosition(virtualContainer, index, numUncategorized);
+            const nodeWithPosition = {
+              ...node,
+              container: virtualContainer,
+              x: position.x,
+              y: position.y,
+              initialX: position.x,
+              initialY: position.y,
+              isUncategorized: true
+            };
+
+            allNodes.push(nodeWithPosition);
+            nodeMap.set(node.id, nodeWithPosition);
+          }
+        });
+      }
+
+      // Filter and prepare edges
+      const validEdges = groups[0].edges.map(edge => ({
+        source: nodeMap.get(edge.source) || edge.source,
+        target: nodeMap.get(edge.target) || edge.target
+      })).filter(edge =>
+        nodeMap.has(edge.source.id || edge.source) &&
+        nodeMap.has(edge.target.id || edge.target)
+      );
+
+
+      // Force simulation configuration section with stronger forces and longer distances
+      const simulation = d3.forceSimulation(allNodes)
+        .alphaDecay(0.05)
+        .velocityDecay(0.3)
+        .force("link", d3.forceLink(validEdges)
+          .id(d => d.id)
+          .distance(d => {
+            const sourceContainer = d.source.container;
+            const targetContainer = d.target.container;
+            if (sourceContainer === targetContainer) {
+              // Use 45% of container size for same-container edges
+              return Math.min(sourceContainer.width, sourceContainer.height) * 0.45;
+            }
+            // Slightly increase distance for inter-container edges
+            return 40;
+          })
+        )
+        .force("charge", d3.forceManyBody()
+          .strength(d => d.isUncategorized ? -200 : -400) // Increased repulsion
+        )
+        .force("collision", d3.forceCollide().radius(25)) // Increased collision radius
+        .force("x", d3.forceX().strength(0.05)) // Reduced strength to allow more movement
+        .force("y", d3.forceY().strength(0.05))
+        .force("container", alpha => {
+          allNodes.forEach(node => {
+            const container = node.container;
+            const centerX = container.x + container.width / 2;
+            const centerY = container.y + container.height / 2;
+
+            const dx = node.x - centerX;
+            const dy = node.y - centerY;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+
+            if (distance > 0) {
+              // Allow nodes to move further from center (increased from 0.45)
+              const maxDistance = Math.min(container.width, container.height) * 0.48;
+              if (distance > maxDistance) {
+                const scale = maxDistance / distance;
+                node.x = centerX + dx * scale;
+                node.y = centerY + dy * scale;
+              }
+            }
+
+            // Stronger repulsion between nodes in the same container
+            allNodes.forEach(otherNode => {
+              if (node !== otherNode && node.container === otherNode.container) {
+                const dx = node.x - otherNode.x;
+                const dy = node.y - otherNode.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                // Increased distance threshold and force
+                if (distance > 0 && distance < 80) {
+                  const force = alpha * 3;
+                  node.vx += (dx / distance) * force;
+                  node.vy += (dy / distance) * force;
+                }
+              }
+            });
+          });
+        });
+
+      function generateSpiralPosition(container, index, total) {
+        const centerX = container.x + container.width / 2;
+        const centerY = container.y + container.height / 2;
+
+        // Increased spiral radius for more initial spread
+        const spiralRadius = Math.min(container.width, container.height) * 0.45;
+        const angle = index * 3; // Increased angle for more spacing
+        const radius = spiralRadius * ((index + 1) / (total + 1));
+
+        return {
+          x: centerX + Math.cos(angle) * radius,
+          y: centerY + Math.sin(angle) * radius + (container.y === virtualContainer.y ? 0 : 30)
+        };
+      }
+
+      simulation.on("tick", () => {
+        allNodes.forEach(node => {
+          const container = node.container;
+          // Reduced padding to allow nodes to get closer to container edges
+          const padding = 15;
+
+          node.x = Math.max(container.x + padding,
+            Math.min(container.x + container.width - padding, node.x));
+          node.y = Math.max(container.y + (node.isUncategorized ? padding : padding + 30),
+            Math.min(container.y + container.height - padding, node.y));
+        });
+
+        links
+          .attr("x1", d => d.source.x)
+          .attr("y1", d => d.source.y)
+          .attr("x2", d => d.target.x)
+          .attr("y2", d => d.target.y);
+
+        nodes
+          .attr("cx", d => d.x)
+          .attr("cy", d => d.y);
+
+        labels
+          .attr("x", d => d.x)
+          .attr("y", d => d.y);
+      });
+
+      // Draw edges
+      const links = zoomGroup.selectAll("line")
+        .data(validEdges)
+        .enter()
+        .append("line")
+        .attr("stroke", "#aaa");
+
+      // Draw nodes
+      const nodes = zoomGroup.selectAll("circle")
+        .data(allNodes)
+        .enter()
+        .append("circle")
+        .attr("r", 8)
+        .attr("fill", d => d.color)
+        .style("cursor", "pointer")
+        .call(drag(simulation))
+        .on("click", (event, d) => {
+          if (d.url) {
+            window.open(d.url, "_blank");
+          }
+        });
+
+      // Add node labels
+      const labels = zoomGroup.selectAll(".node-label")
+        .data(allNodes)
+        .enter()
+        .append("text")
+        .attr("class", "node-label")
+        .attr("fill", "#ffffff")
+        .attr("font-size", "10px")
+        .attr("dx", 12)
+        .attr("dy", 4)
+        .text(d => d.label);
+
+      // Update positions on simulation tick
+      simulation.on("tick", () => {
+        allNodes.forEach(node => {
+          const container = node.container;
+          const padding = 20;
+
+          node.x = Math.max(container.x + padding,
+            Math.min(container.x + container.width - padding, node.x));
+          node.y = Math.max(container.y + (node.isUncategorized ? padding : padding + 30),
+            Math.min(container.y + container.height - padding, node.y));
+        });
+
+        links
+          .attr("x1", d => d.source.x)
+          .attr("y1", d => d.source.y)
+          .attr("x2", d => d.target.x)
+          .attr("y2", d => d.target.y);
+
+        nodes
+          .attr("cx", d => d.x)
+          .attr("cy", d => d.y);
+
+        labels
+          .attr("x", d => d.x)
+          .attr("y", d => d.y);
+      });
+
+      function drag(simulation) {
+        function dragStarted(event) {
+          if (!event.active) simulation.alphaTarget(0.3).restart();
+          event.subject.fx = event.subject.x;
+          event.subject.fy = event.subject.y;
+        }
+
+        function dragged(event) {
+          const container = event.subject.container;
+          const padding = 20;
+          const x = Math.max(container.x + padding,
+            Math.min(container.x + container.width - padding, event.x));
+          const y = Math.max(container.y + (event.subject.isUncategorized ? padding : padding + 30),
+            Math.min(container.y + container.height - padding, event.y));
+          event.subject.fx = x;
+          event.subject.fy = y;
+        }
+
+        function dragEnded(event) {
+          if (!event.active) simulation.alphaTarget(0);
+          event.subject.fx = null;
+          event.subject.fy = null;
+        }
+
+        return d3.drag()
+          .on("start", dragStarted)
+          .on("drag", dragged)
+          .on("end", dragEnded);
+      }
+
+      renderLegend(svg, width);
+    }
+
+
+    function renderGraph(data) {
+      d3.select("#graph").selectAll("*").remove(); // Clear graph
+      const width = document.getElementById('graph').clientWidth;
+      const height = 600;
+
+      const svg = d3.select("#graph").append("svg")
+        .attr("width", width)
+        .attr("height", height);
+
+      const zoomGroup = svg.append("g");
+
+      const zoom = d3.zoom()
+        .scaleExtent([0.5, 5])
+        .on("zoom", (event) => {
+          zoomGroup.attr("transform", event.transform);
+        });
+
+      svg.call(zoom);
+
+      const simulation = d3.forceSimulation(data.nodes)
+        .force("link", d3.forceLink(data.edges).id(d => d.id).distance(100))
+        .force("charge", d3.forceManyBody().strength(-200))
+        .force("center", d3.forceCenter(width / 2, height / 2));
+
+      // Draw edges
+      const link = zoomGroup.append("g")
+        .selectAll("line")
+        .data(data.edges)
+        .join("line")
+        .attr("stroke", "#aaa");
+      // Draw nodes
+      const node = zoomGroup.append("g")
+        .selectAll("circle")
+        .data(data.nodes)
+        .join("circle")
+        .attr("r", 10)
+        .attr("fill", d => d.color)
+        .call(drag(simulation));
+
+      // Add labels
+      const label = zoomGroup.append("g")
+        .selectAll("text")
+        .data(data.nodes)
+        .join("text")
+        .text(d => d.label)
+        .attr("font-size", "10px")
+        .attr("fill", "#FFFFFF")
+        .attr("dx", 14)
+        .attr("dy", 4);
+
+      node.on("click", (event, d) => {
+        if (d.url) {
+          window.open(d.url, "_blank");
+        }
+      });
+
+      simulation.on("tick", () => {
+        link
+          .attr("x1", d => d.source.x)
+          .attr("y1", d => d.source.y)
+          .attr("x2", d => d.target.x)
+          .attr("y2", d => d.target.y);
+
+        node
+          .attr("cx", d => d.x)
+          .attr("cy", d => d.y);
+
+        label
+          .attr("x", d => d.x)
+          .attr("y", d => d.y);
+      });
+
+      function drag(simulation) {
+        function dragStarted(event) {
+          if (!event.active) simulation.alphaTarget(0.3).restart();
+          event.subject.fx = event.subject.x;
+          event.subject.fy = event.subject.y;
+        }
+        function dragged(event) {
+          event.subject.fx = event.x;
+          event.subject.fy = event.y;
+        }
+        function dragEnded(event) {
+          if (!event.active) simulation.alphaTarget(0);
+          event.subject.fx = null;
+          event.subject.fy = null;
+        }
+        return d3.drag()
+          .on("start", dragStarted)
+          .on("drag", dragged)
+          .on("end", dragEnded);
+      }
+
+      renderLegend(svg, width);
+    }
+
+    function renderLegend(svg, width) {
+      const legendData = [
+        { label: "Mechanism", color: "#1f78b4" },
+        { label: "Course", color: "#33a02c" },
+        { label: "Build", color: "#e31a1c" },
+        { label: "Expert", color: "#ff7f00" },
+        { label: "Category", color: "#ffffff" }
+      ];
+
+      const legend = svg.append("g")
+        .attr("transform", `translate(${width - 150}, 20)`);
+
+      const legendItem = legend.selectAll(".legend-item")
+        .data(legendData)
+        .enter()
+        .append("g")
+        .attr("class", "legend-item")
+        .attr("transform", (d, i) => `translate(0, ${i * 25})`);
+
+      legendItem.append("rect")
+        .attr("width", 20)
+        .attr("height", 20)
+        .attr("fill", d => d.color)
+        .attr("stroke", "#000")
+        .attr("stroke-width", 0.5);
+
+      legendItem.append("text")
+        .attr("x", 30)
+        .attr("y", 15)
+        .attr("font-size", "12px")
+        .attr("fill", "#FFFFFF")
+        .text(d => d.label);
+    }
+  </script>
 </body>
 
 </html>

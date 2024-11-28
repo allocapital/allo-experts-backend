@@ -17,9 +17,12 @@ Including another URLconf
 from django.contrib import admin
 from django.urls import path,include
 from .views import visual_map
+from django.views.generic import TemplateView
+
 
 urlpatterns = [
-    path('admin/administration/visual/', visual_map, name='visual_map'),
+    path('admin/administration/visual-data/', visual_map, name='visual_map'),
+    path('admin/administration/visual/', TemplateView.as_view(template_name="admin/visual_map.html"), name='visual_page'),
     path('admin/', admin.site.urls),
     path('api/mechanisms/', include('mechanisms.urls')),
     path('api/experts/', include('experts.urls')),   
