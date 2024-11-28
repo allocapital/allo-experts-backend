@@ -1,9 +1,9 @@
 from django.contrib import admin
 from django.shortcuts import render
 from django.urls import path
+from django.http import JsonResponse
 
 class GraphAdmin(admin.ModelAdmin):
-
     related_object_types = {
         'mechanism': 'mechanisms',
         'expert': 'experts',
@@ -12,184 +12,179 @@ class GraphAdmin(admin.ModelAdmin):
         'category': 'categories',
     }
 
-    def get_related_objects(self, instance):
-            related_objects = []
-            for obj_type, related_name in self.related_object_types.items():
-                if hasattr(instance, related_name):  
-                    related_queryset = getattr(instance, related_name).all()
-                    for obj in related_queryset:
+    def get_related_objects(self, instance, depth=0, max_depth=2, visited=None):
+        if visited is None:
+            visited = set()
+        
+        instance_id = f"{instance._meta.model_name}_{instance.id}"
+        if instance_id in visited:
+            return []
+
+        visited.add(instance_id)
+        related_objects = []
+
+        # Get direct relationships (Level 1)
+        for obj_type, related_name in self.related_object_types.items():
+            if hasattr(instance, related_name):
+                related_queryset = getattr(instance, related_name).all()
+                for obj in related_queryset:
+                    obj_id = f"{obj_type}_{obj.id}"
+                    if obj_id not in visited:
                         title = getattr(obj, 'name', getattr(obj, 'title', ''))
-                        url = f"/admin/{obj._meta.app_label}/{obj._meta.model_name}/{obj.id}/change/"
                         related_objects.append({
                             'type': obj_type,
-                            'instance': obj, 
+                            'instance': obj,
                             'id': obj.id,
                             'title': title,
-                            'url': url
+                            'url': f"/admin/{obj._meta.app_label}/{obj._meta.model_name}/{obj.id}/change/"
                         })
-            return related_objects
 
-    def get_related_data(self, instance):
-        related_objects = self.get_related_objects(instance)
-        return {
-            'instance': instance,
-            'related_objects': related_objects,
-        }
+                        # If at level 1, get relationships from those objects (Level 2)
+                        if depth == 0:
+                            for sub_type, sub_related_name in self.related_object_types.items():
+                                if hasattr(obj, sub_related_name):
+                                    sub_queryset = getattr(obj, sub_related_name).all()
+                                    for sub_obj in sub_queryset:
+                                        sub_id = f"{sub_type}_{sub_obj.id}"
+                                        if sub_id not in visited:
+                                            sub_title = getattr(sub_obj, 'name', getattr(sub_obj, 'title', ''))
+                                            related_objects.append({
+                                                'type': sub_type,
+                                                'instance': sub_obj,
+                                                'id': sub_obj.id,
+                                                'title': sub_title,
+                                                'url': f"/admin/{sub_obj._meta.app_label}/{sub_obj._meta.model_name}/{sub_obj.id}/change/"
+                                            })
+                                            visited.add(sub_id)
 
-    def change_view(self, request, object_id, form_url='', extra_context=None):
-        instance = self.get_object(request, object_id)
-        related_data = self.get_related_data(instance)
+        return related_objects
 
-        extra_context = extra_context or {}
-        extra_context['network_data'] = related_data
-        extra_context['graph_script'] = self.get_graph_script(related_data)
-
-        return super().change_view(request, object_id, form_url, extra_context=extra_context)
-
-    def get_graph_script(self, related_data):
-        nodes_js = []
-        edges_js = []
+    def get_graph_data(self, instance):
+        nodes = []
+        edges = []
         node_ids = set()
         edge_ids = set()
 
-        # Function to add an undirected edge if it doesn't already exist
-        def add_edge(node_from, node_to, edges_js, edge_ids):
-            if node_from != node_to:
-                edge = tuple(sorted([node_from, node_to]))  # Sorts nodes to ensure consistent ordering
-                # Check if the edge already exists in either direction
-                if edge not in edge_ids:
-                    edges_js.append(f"{{ from: '{edge[0]}', to: '{edge[1]}' }}")
-                    edge_ids.add(edge)
-
-        # Define colors for node types
         colors = {
-            'mechanism': '#1f78b4',  # Blue
-            'course': '#33a02c',      # Green
-            'build': '#e31a1c',       # Red
-            'expert': '#ff7f00'  ,     # Orange
-            'category': '#ffffff'       # White
+            'mechanism': '#1f78b4',
+            'course': '#33a02c',
+            'build': '#e31a1c',
+            'expert': '#ff7f00',
+            'category': '#ffffff'
         }
 
-        # Get the main instance (e.g., mechanism, course, etc.)
-        instance = related_data['instance']
+        def add_node(obj, obj_type, is_main=False):
+            node_id = f"{obj_type}_{obj.id}"
+            if node_id not in node_ids:
+                title = getattr(obj, 'name', getattr(obj, 'title', ''))
+                nodes.append({
+                    "id": node_id,
+                    "label": title,
+                    "color": colors.get(obj_type, '#888888'),
+                    "type": obj_type,
+                    "url": f"/admin/{obj._meta.app_label}/{obj._meta.model_name}/{obj.id}/change/",
+                    "isMain": is_main
+                })
+                node_ids.add(node_id)
+            return node_id
+
+        def check_direct_relation(obj1, obj2):
+            # Check if obj2 is in any of obj1's related fields
+            for _, related_name in self.related_object_types.items():
+                if hasattr(obj1, related_name):
+                    related_items = getattr(obj1, related_name).all()
+                    if obj2 in related_items:
+                        return True
+            return False
+
+        def add_edge(source_obj, target_obj, source_id, target_id):
+            if check_direct_relation(source_obj, target_obj):
+                edge_id = tuple(sorted([source_id, target_id]))
+                if edge_id not in edge_ids:
+                    edges.append({
+                        "source": edge_id[0],
+                        "target": edge_id[1]
+                    })
+                    edge_ids.add(edge_id)
+
+        # Add main instance node
         instance_type = instance._meta.model_name
-        instance_id = f"{instance_type}_{instance.id}"
-        color = colors.get(instance_type, '#888888')
-        title = getattr(instance, 'name', getattr(instance, 'title', ''))
+        main_node_id = add_node(instance, instance_type, True)
 
-        # Main Instance Node
-        nodes_js.append(f"{{ id: '{instance_id}', label: '{title}', shape: 'dot', size: 60, font: {{ size: 20, color: '#ffffff', face: 'arial', strokeWidth: 0, strokeColor: '#000000' }}, color: '{color}', title: '/admin/{instance._meta.app_label}/{instance._meta.model_name}/{instance.id}/change/' }}")
-        node_ids.add(instance_id)
+        # Get all related objects
+        related_objects = self.get_related_objects(instance)
 
-        # Direct Relationships
-        # Loop through all related objects to create nodes and edges
-        for obj in related_data['related_objects']:
-            obj_id = f"{obj['type']}_{obj['id']}"
+        # Add level 1 nodes and edges
+        level1_nodes = []
+        for obj in related_objects:
+            related_node_id = add_node(obj['instance'], obj['type'])
+            if check_direct_relation(instance, obj['instance']):
+                level1_nodes.append(obj)
+                add_edge(instance, obj['instance'], main_node_id, related_node_id)
 
-            if obj_id not in node_ids:
-                nodes_js.append(
-                    f"{{ id: '{obj_id}', label: '{obj['title']}', shape: 'dot', size: 26, font: {{ size: 20, color: '#ffffff', face: 'arial', strokeWidth: 0, strokeColor: '#000000' }}, color: '{colors[obj['type']]}', title: '/admin/{obj['instance']._meta.app_label}/{obj['instance']._meta.model_name}/{obj['instance'].id}/change/' }}"
+        # Add edges between related nodes only if they have direct relationships
+        for i, obj1 in enumerate(related_objects):
+            node1_id = f"{obj1['type']}_{obj1['id']}"
+            for obj2 in related_objects[i+1:]:
+                node2_id = f"{obj2['type']}_{obj2['id']}"
+                add_edge(obj1['instance'], obj2['instance'], node1_id, node2_id)
+
+        # Prepare groups data
+        groups = []
+        category_nodes = [n for n in nodes if n["type"] == "category"]
+        
+        for cat_node in category_nodes:
+            category_related = [
+                node for node in nodes
+                if any(
+                    (edge["source"] == cat_node["id"] and edge["target"] == node["id"]) or
+                    (edge["target"] == cat_node["id"] and edge["source"] == node["id"])
+                    for edge in edges
                 )
-                node_ids.add(obj_id)
+            ]
+            if category_related:
+                groups.append({
+                    "category": cat_node,
+                    "nodes": category_related,
+                    "edges": edges
+                })
 
-            # Add edge between instance and the related object
-            add_edge(instance_id, obj_id, edges_js, edge_ids)
+        uncategorized = [
+            node for node in nodes
+            if node["type"] != "category" and
+            not any(node in group["nodes"] for group in groups)
+        ]
 
-        # Level 2 Relationships
-        all_types = ['mechanism', 'expert', 'course', 'build', 'category']
-        
-        
-        # Level 2 Relationships: Connect related objects to each other as needed (e.g. experts, courses, builds)
+        return {
+            "nodes": nodes,
+            "edges": edges,
+            "groups": groups,
+            "uncategorized": uncategorized
+        }
 
-        for obj in related_data['related_objects']:
-            obj_id = f"{obj['type']}_{obj['id']}"
 
-            for related_type in all_types:
-                if related_type == 'category':
-                    related_field = 'categories'  # Correct plural form for category
-                else:
-                    related_field = f"{related_type}s" 
+    def get_graph_view_context(self, request, object_id):
+        instance = self.get_object(request, object_id)
+        if instance:
+            return {
+                'title': str(instance),
+                'graph_data': self.get_graph_data(instance)
+            }
+        return None
 
-                if hasattr(obj['instance'], related_field):    
-                    # Dynamically fetch the related items
-                    related_items = getattr(obj['instance'], related_field).all()
+    def graph_data_view(self, request, object_id):
+        context = self.get_graph_view_context(request, object_id)
+        if context:
+            return JsonResponse(context['graph_data'])
+        return JsonResponse({"error": "Object not found"}, status=404)
 
-                    for related_item in related_items:
-                        related_item_id = f"{related_type}_{related_item.id}"
-                        color = colors[related_type]
-                        
-                        # Add the related item as a node if it doesn't already exist
-                        if related_item_id not in node_ids:
-                            label = getattr(related_item, 'title', getattr(related_item, 'name', ''))
-                            nodes_js.append(
-                                f"{{ id: '{related_item_id}', label: '{label}', shape: 'dot', size: 26, font: {{ size: 20, color: '#ffffff', face: 'arial', strokeWidth: 0, strokeColor: '#000000' }}, color: '{colors[related_type]}', title: '/admin/{related_item._meta.app_label}/{related_item._meta.model_name}/{related_item.id}/change/' }}"
-                            )
-                            node_ids.add(related_item_id)
-                        
-                        # Add the edge to the graph
-                        add_edge(obj_id, related_item_id, edges_js, edge_ids)
-
-        script = f"""
-        <script type="text/javascript" src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
-        <div id="mynetwork" style="width: 100%; height: 600px;"></div>
-        <script>
-            var nodes = new vis.DataSet([{', '.join(nodes_js)}]);
-            var edges = new vis.DataSet([{', '.join(edges_js)}]);
-            var container = document.getElementById('mynetwork');
-            var data = {{ nodes: nodes, edges: edges }};
-            var options = {{
-                edges: {{
-                    color: {{
-                        color: '#D3D3D3',
-                        highlight: '#D3D3D3',
-                        hover: 'white'
-                    }},
-                    length: 300,
-                    smooth: false //straight lines
-                }},
-                interaction: {{
-                    zoomView: true,
-                    zoomSpeed: 0.2,
-                    dragView: true,
-                    selectable: true
-                }},
-                physics: {{
-                enabled: true,
-                barnesHut: {{
-                    gravitationalConstant: -20000,
-                    centralGravity: 0.1,
-                    springLength: 100,
-                    springConstant: 0.04
-                }},
-                repulsion: {{
-                    nodeDistance: 100,
-                    springLength: 200
-                }},
-                solver: 'barnesHut',  // Use Barnes-Hut solver for better layout
-                timestep: 0.5
-            }},
-             layout: {{
-                improvedLayout: true,  // Use improved layout to enhance graph structure
-                randomSeed: 2,  // Fix the randomness of the layout
-                hierarchicalRepulsion: {{
-                    centralGravity: 0.1,
-                    springLength: 200,
-                    springConstant: 0.01,
-                    nodeDistance: 150
-                }}
-            }},
-            }};
-            var network = new vis.Network(container, data, options);
-
-            // Add click event listener for nodes
-            network.on('click', function (event) {{
-                var nodeId = event.nodes[0];
-                if (nodeId) {{
-                    var node = nodes.get(nodeId);
-                    var url = node.title;
-                    window.open(url, '_blank');
-                }}
-            }});
-        </script>
-        """
-        return script
+    def network_view(self, request, object_id):
+        context = self.get_graph_view_context(request, object_id)
+        if context:
+            return render(request, 'admin/courses/course/change_form.html', {
+                **self.get_changeform_initial_data(request),
+                'title': context['title'],
+                'graph_data': context['graph_data'],
+                'original': self.get_object(request, object_id),
+            })
+        return JsonResponse({"error": "Object not found"}, status=404)

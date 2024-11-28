@@ -25,17 +25,15 @@ class MechanismAdmin(GraphAdmin):
         urls = super().get_urls()
         custom_urls = [
             path('network/<int:object_id>/', self.admin_site.admin_view(self.network_view), name='mechanism_network'),
+            path('network-data/<int:object_id>/', self.admin_site.admin_view(self.graph_data_view), name='mechanism_network_data'),
         ]
         return custom_urls + urls
 
-    def network_view(self, request, object_id):
-        instance = self.get_object(request, object_id)
-        related_data = self.get_related_data(instance)
-        return render(request, 'core/change_form.html', {
-            'data': related_data,
-            'original': instance,
-            'graph_script': self.get_graph_script(related_data),
-        })
-
+    def change_view(self, request, object_id, form_url='', extra_context=None):
+        extra_context = extra_context or {}
+        context = self.get_graph_view_context(request, object_id)
+        if context:
+            extra_context.update(context)
+        return super().change_view(request, object_id, form_url, extra_context=extra_context)
 
 admin.site.register(Mechanism, MechanismAdmin)
