@@ -36,6 +36,7 @@ class Mechanism(models.Model):
     courses = models.ManyToManyField('courses.Course', related_name='related_mechanisms', blank=True)
     builds = models.ManyToManyField('builds.Build', related_name='related_mechanisms', blank=True)
     mechanisms = models.ManyToManyField('self', blank=True)
+
     class Meta:
         ordering = ('-created_at',)
 
@@ -75,3 +76,44 @@ class Mechanism(models.Model):
             count += 1
 
         super().save(*args, **kwargs)
+
+
+class MechanismMapping(models.Model):
+    """
+    Maps funders and grant pools to specific mechanisms.
+    This is used to categorize funding data from BigQuery.
+    """
+    funder = models.CharField(max_length=255, help_text="Name of the funding organization (e.g., 'gitcoin', 'optimism')")
+    grant_pool_name = models.CharField(max_length=255, null=True, blank=True, help_text="Name of the grant pool or program")
+    mechanism = models.ForeignKey(Mechanism, on_delete=models.CASCADE, related_name='mappings')
+    priority = models.IntegerField(default=0, help_text="Higher priority mappings are applied first")
+    
+    class Meta:
+        ordering = ('-priority',)
+        verbose_name_plural = "Mechanism Mappings"
+        unique_together = [['funder', 'grant_pool_name']]
+    
+    def __str__(self):
+        if self.grant_pool_name:
+            return f"{self.funder} - {self.grant_pool_name} → {self.mechanism.title}"
+        return f"{self.funder} → {self.mechanism.title}"
+
+
+class MechanismTrend(models.Model):
+    """
+    Stores funding data aggregated by mechanism and month.
+    This is used to generate trend charts on the frontend.
+    """
+    mechanism = models.ForeignKey(Mechanism, on_delete=models.CASCADE, related_name='trends')
+    month = models.DateField(help_text="First day of the month for this data point")
+    value = models.DecimalField(max_digits=14, decimal_places=2, help_text="Funding amount in USD")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        ordering = ('month',)
+        verbose_name_plural = "Mechanism Trends"
+        unique_together = [['mechanism', 'month']]
+    
+    def __str__(self):
+        return f"{self.mechanism.title} - {self.month.strftime('%Y-%m')} - ${self.value}"

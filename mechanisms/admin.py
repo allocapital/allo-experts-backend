@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.urls import path
 from django.shortcuts import render
-from .models import Mechanism
+from .models import Mechanism, MechanismMapping, MechanismTrend
 from core.admin import GraphAdmin
 from django.utils.html import format_html
 
@@ -36,4 +36,25 @@ class MechanismAdmin(GraphAdmin):
             extra_context.update(context)
         return super().change_view(request, object_id, form_url, extra_context=extra_context)
 
+
+class MechanismMappingAdmin(admin.ModelAdmin):
+    list_display = ('funder', 'grant_pool_name', 'mechanism', 'priority')
+    list_filter = ('mechanism', 'funder')
+    search_fields = ('funder', 'grant_pool_name', 'mechanism__title')
+    autocomplete_fields = ('mechanism',)
+    ordering = ('-priority', 'funder', 'grant_pool_name')
+
+
+class MechanismTrendAdmin(admin.ModelAdmin):
+    list_display = ('mechanism', 'month', 'value', 'created_at', 'updated_at')
+    list_filter = ('mechanism', 'month')
+    search_fields = ('mechanism__title',)
+    autocomplete_fields = ('mechanism',)
+    ordering = ('-month', 'mechanism')
+    date_hierarchy = 'month'
+    readonly_fields = ('created_at', 'updated_at')
+
+
 admin.site.register(Mechanism, MechanismAdmin)
+admin.site.register(MechanismMapping, MechanismMappingAdmin)
+admin.site.register(MechanismTrend, MechanismTrendAdmin)
