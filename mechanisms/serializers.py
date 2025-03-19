@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Mechanism
+from .models import Mechanism, MechanismTrend, MechanismMapping
 from experts.models import Expert
 from courses.models import Course
 from builds.models import Build
@@ -34,3 +34,32 @@ class MechanismSerializer(serializers.ModelSerializer):
     class Meta: 
         model = Mechanism
         fields = "__all__"
+
+
+class MechanismMappingSerializer(serializers.ModelSerializer):
+    mechanism_name = serializers.CharField(source='mechanism.title', read_only=True)
+    mechanism_slug = serializers.CharField(source='mechanism.slug', read_only=True)
+    
+    class Meta:
+        model = MechanismMapping
+        fields = ('id', 'funder', 'grant_pool_name', 'mechanism', 'mechanism_name', 'mechanism_slug', 'priority')
+
+
+class MechanismTrendSerializer(serializers.ModelSerializer):
+    mechanism_name = serializers.CharField(source='mechanism.title', read_only=True)
+    mechanism_slug = serializers.CharField(source='mechanism.slug', read_only=True)
+    month = serializers.DateField(format="%Y-%m")
+    
+    class Meta:
+        model = MechanismTrend
+        fields = ('id', 'mechanism', 'mechanism_name', 'mechanism_slug', 'month', 'value')
+
+
+class TrendItemSerializer(serializers.Serializer):
+    """
+    Serializer for the frontend TrendItem format.
+    """
+    quarter = serializers.CharField()  # Format: "YYYY-Q#"
+    mechanism_slug = serializers.CharField()
+    mechanism_name = serializers.CharField()
+    value = serializers.FloatField()
