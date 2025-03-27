@@ -83,8 +83,8 @@ class MechanismMapping(models.Model):
     Maps funders and grant pools to specific mechanisms.
     This is used to categorize funding data from BigQuery.
     """
-    funder = models.CharField(max_length=255, help_text="Name of the funding organization (e.g., 'gitcoin', 'optimism')")
-    grant_pool_name = models.CharField(max_length=255, null=True, blank=True, help_text="Name of the grant pool or program")
+    funder = models.CharField(max_length=255, help_text="Name of the funding organization ('funder' value  - e.g., 'gitcoin', 'optimism')")
+    grant_pool_name = models.CharField(max_length=255, null=True, blank=True, help_text="Name of the grant pool or program ('grant_pool_name' value)")
     mechanism = models.ForeignKey(Mechanism, on_delete=models.CASCADE, related_name='mappings')
     priority = models.IntegerField(default=0, help_text="Higher priority mappings are applied first")
     
