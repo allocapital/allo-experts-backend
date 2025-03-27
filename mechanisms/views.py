@@ -1,6 +1,6 @@
 from django.shortcuts import render
 from rest_framework import generics, response, status
-from django.db.models import Sum, F
+from django.db.models import Sum, F, Q
 from django.db.models.functions import ExtractYear, ExtractMonth
 from collections import defaultdict
 from .models import Mechanism, MechanismTrend
@@ -51,7 +51,7 @@ class TrendsListAPIView(generics.GenericAPIView):
     def get(self, request):
         # Get all trend data
         trends = MechanismTrend.objects.select_related('mechanism').filter(
-            mechanism__hidden=False
+            Q(mechanism__hidden=False) | Q(mechanism__slug='other')
         )
         
         # Group by mechanism and quarter

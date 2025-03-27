@@ -75,6 +75,8 @@ class Command(BaseCommand):
         
         except Exception as e:
             self.stdout.write(self.style.ERROR(f'Error updating trend data: {str(e)}'))
+            import traceback
+            self.stdout.write(traceback.format_exc())
     
     def generate_mock_data(self, start_date):
         """
@@ -166,14 +168,37 @@ class Command(BaseCommand):
         """
         Applies mapping rules to categorize funding by mechanism.
         Returns a dictionary with (mechanism_id, month) as keys and total_usd as values.
+        Unmapped funding is aggregated into an "Other" category.
         """
         self.stdout.write('Applying mapping rules...')
         
         # Get all mapping rules
         mappings = list(MechanismMapping.objects.select_related('mechanism').all())
         
+        # Get or create the "Other" mechanism for unmapped funding
+        other_mechanism, created = Mechanism.objects.get_or_create(
+            title="Other",
+            defaults={
+                'description': "Funding that doesn't have a specific mechanism mapping",
+                'slug': 'other',
+                'background_color': '#FFFDEB',
+                'hidden': True,
+            }
+        )
+        if created:
+            self.stdout.write(self.style.SUCCESS('Created "Other" mechanism for unmapped funding'))
+        else:
+            # Ensure it's hidden even if it already existed
+            if not other_mechanism.hidden:
+                other_mechanism.hidden = True
+                other_mechanism.save()
+                self.stdout.write(self.style.SUCCESS('Updated existing "Other" mechanism to be hidden'))
+        
         # Initialize result dictionary
         trend_data = {}
+        
+        # Track unmapped funders for creating mappings
+        unmapped_funders = set()
         
         # Process each record
         for record in raw_data:
@@ -186,37 +211,87 @@ class Command(BaseCommand):
             mechanism = self.find_matching_mechanism(mappings, funder, grant_pool_name)
             
             if mechanism:
-                # Add to the trend data
+                # Add to the trend data for the mapped mechanism
                 key = (mechanism.id, month)
                 if key in trend_data:
                     trend_data[key] += total_usd
                 else:
                     trend_data[key] = total_usd
             else:
+                # Add to the trend data for the "Other" mechanism
+                key = (other_mechanism.id, month)
+                if key in trend_data:
+                    trend_data[key] += total_usd
+                else:
+                    trend_data[key] = total_usd
+                
+                unmapped_funders.add(funder)
+                
                 self.stdout.write(self.style.WARNING(
-                    f'No mapping found for funder="{funder}", grant_pool="{grant_pool_name}"'
+                    f'No mapping found for funder="{funder}", grant_pool="{grant_pool_name}" - adding to "Other" category'
                 ))
+        
+        self.create_mappings_for_unmapped_funders(unmapped_funders, other_mechanism)
         
         self.stdout.write(f'Processed data into {len(trend_data)} trend records')
         return trend_data
-    
+
+    def create_mappings_for_unmapped_funders(self, unmapped_funders, other_mechanism):
+        """
+        Creates general MechanismMapping entries for unmapped funders, mapping them to the "Other" mechanism.
+        Creates one entry per funder with no grant pool name specified.
+        """
+        if not unmapped_funders:
+            return
+        
+        created_count = 0
+        for funder in unmapped_funders:
+            # Check if a general mapping already exists for this funder
+            existing = MechanismMapping.objects.filter(
+                funder=funder,
+                grant_pool_name__isnull=True
+            ).exists()
+            
+            if not existing:
+                MechanismMapping.objects.create(
+                    funder=funder,
+                    grant_pool_name=None, 
+                    mechanism=other_mechanism,
+                    priority=0 
+                )
+                created_count += 1
+        
+        if created_count > 0:
+            self.stdout.write(self.style.SUCCESS(
+                f'Created {created_count} new general mappings for unmapped funders to the "Other" category'
+            ))
+
     def find_matching_mechanism(self, mappings, funder, grant_pool_name):
         """
-        Finds the mechanism that matches the given funder and grant pool.
-        Returns a Mechanism object or None if no match is found.
+        Find the matching mechanism for a funder and grant pool.
+        First tries to find an exact match for both funder and grant pool.
+        If no exact match is found, tries to find a match for just the funder.
+        Returns None if no match is found.
+        
+        The mappings are sorted by priority (highest first) to ensure that
+        higher priority mappings take precedence.
         """
+        # Sort mappings by priority (highest first)
+        sorted_mappings = sorted(mappings, key=lambda m: -m.priority)
+        
         # First, try to find an exact match for both funder and grant pool
-        for mapping in mappings:
-            if mapping.funder == funder and mapping.grant_pool_name == grant_pool_name:
+        for mapping in sorted_mappings:
+            if mapping.funder.lower() == funder.lower() and mapping.grant_pool_name and mapping.grant_pool_name.lower() == grant_pool_name.lower():
                 return mapping.mechanism
         
-        # If no exact match, try to find a match for just the funder
-        for mapping in mappings:
-            if mapping.funder == funder and mapping.grant_pool_name is None:
+        # If no exact match is found, try to find a match for just the funder
+        for mapping in sorted_mappings:
+            if mapping.funder.lower() == funder.lower() and not mapping.grant_pool_name:
                 return mapping.mechanism
         
-        # No match found
+        # If no match is found, return None
         return None
+    
     
     @transaction.atomic
     def update_database(self, trend_data, clear_all=False):
@@ -226,26 +301,26 @@ class Command(BaseCommand):
         
         Args:
             trend_data: Dictionary with (mechanism_id, month) as keys and total_usd as values
-            clear_all: If True, delete all data for the mechanisms being updated
+            clear_all: If True, delete ALL trend data regardless of mechanism
         """
         self.stdout.write('Updating database...')
         
         # Get the mechanisms and months we're updating
         months = set(month for _, month in trend_data.keys())
-        mechanisms = set(mech_id for (mech_id, _) in trend_data.keys())
+        mechanisms = set(mech_id for mech_id, _ in trend_data.keys())
         
-        # Build the filter for deleting existing data
-        delete_filter = {'mechanism_id__in': mechanisms}
-        
-        # If clear_all is False, only delete data for the specific months
-        if not clear_all:
-            delete_filter['month__in'] = months
-            self.stdout.write('Deleting data only for the specific months being updated')
+        if clear_all:
+            # Delete ALL trend data regardless of mechanism
+            self.stdout.write(self.style.WARNING('Deleting ALL trend data (--clear-all)'))
+            deleted_count = MechanismTrend.objects.all().delete()[0]
         else:
-            self.stdout.write('Deleting ALL data for the mechanisms being updated (--clear-all)')
-        
-        # Delete existing trends based on the filter
-        deleted_count = MechanismTrend.objects.filter(**delete_filter).delete()[0]
+            # Only delete data for the specific mechanisms and months
+            delete_filter = {
+                'mechanism_id__in': mechanisms,
+                'month__in': months
+            }
+            self.stdout.write('Deleting data only for the specific mechanisms and months being updated')
+            deleted_count = MechanismTrend.objects.filter(**delete_filter).delete()[0]
         
         if deleted_count > 0:
             self.stdout.write(f'Deleted {deleted_count} existing trends')
